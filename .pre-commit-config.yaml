@@ -4,22 +4,30 @@ default_language_version:
   python: python3
 
 repos:
+  # Check the pre-commit configuration
+  - repo: meta
+    hooks:
+      - id: check-useless-excludes
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-case-conflict
       - id: check-executables-have-shebangs
       - id: check-json
       - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
       - id: check-toml
+      - id: check-vcs-permalinks
       - id: check-xml
       - id: debug-statements
+      - id: destroyed-symlinks
       - id: detect-aws-credentials
         args:
           - --allow-missing-credentials
       - id: detect-private-key
       - id: end-of-file-fixer
-        exclude: files/(issue|motd)
       - id: mixed-line-ending
         args:
           - --fix=lf
@@ -31,22 +39,15 @@ repos:
 
   # Text file hooks
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.41.0
+    rev: v0.42.0
     hooks:
       - id: markdownlint
         args:
           - --config=.mdl_config.yaml
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    # This is the last version of v3 available from the mirror. We should hold
-    # here until v4, which is currently in alpha, is more stable.
-    rev: v3.1.0
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.3.3
     hooks:
       - id: prettier
-        # This is the latest version of v3 available from NPM. The pre-commit
-        # mirror does not pull tags for old major versions once a new major
-        # version tag is published.
-        additional_dependencies:
-          - prettier@3.3.1
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
     hooks:
@@ -56,7 +57,7 @@ repos:
 
   # GitHub Actions hooks
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.28.4
+    rev: 0.29.4
     hooks:
       - id: check-github-actions
       - id: check-github-workflows
@@ -74,25 +75,25 @@ repos:
   - repo: https://github.com/TekWizely/pre-commit-golang
     rev: v1.0.0-rc.1
     hooks:
-      # Style Checkers
-      - id: go-critic
-      # StaticCheck
-      - id: go-staticcheck-repo-mod
       # Go Build
       - id: go-build-repo-mod
-      # Go Mod Tidy
-      - id: go-mod-tidy-repo
-      # Go Test
-      - id: go-test-repo-mod
-      # Go Vet
-      - id: go-vet-repo-mod
-      # GoSec
-      - id: go-sec-repo-mod
+      # Style Checkers
+      - id: go-critic
       # goimports
       - id: go-imports-repo
         args:
           # Write changes to files
           - -w
+      # Go Mod Tidy
+      - id: go-mod-tidy-repo
+      # GoSec
+      - id: go-sec-repo-mod
+      # StaticCheck
+      - id: go-staticcheck-repo-mod
+      # Go Test
+      - id: go-test-repo-mod
+      # Go Vet
+      - id: go-vet-repo-mod
   # Nix hooks
   - repo: https://github.com/nix-community/nixpkgs-fmt
     rev: v1.3.0
@@ -101,7 +102,7 @@ repos:
 
   # Shell script hooks
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.8.0-1
+    rev: v3.10.0-1
     hooks:
       - id: shfmt
         args:
@@ -151,7 +152,7 @@ repos:
         additional_dependencies:
           - importlib-metadata<5
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.4.2
+    rev: 24.10.0
     hooks:
       - id: black
   - repo: https://github.com/PyCQA/flake8
@@ -162,7 +163,7 @@ repos:
     hooks:
       - id: flake8
         additional_dependencies:
-          - flake8-docstrings
+          - flake8-docstrings==1.7.0
   - repo: https://github.com/PyCQA/isort
     # isort 5.12.0 dropped support for Python <3.8. Until this project and
     # the build.yml workflow can migrate to Python 3.8 or newer we must
@@ -177,6 +178,10 @@ repos:
     rev: v1.4.1
     hooks:
       - id: mypy
+        # IMPORTANT: Keep type hinting-related dependencies of the
+        # mypy pre-commit hook additional_dependencies in sync with
+        # the dev section of setup.py to avoid discrepancies in type
+        # checking between environments.
         additional_dependencies:
           - pytest
           - pytablewriter
@@ -189,6 +194,21 @@ repos:
         # option to enforce a complete mypy configuration.
         args:
           - --scripts-are-modules
+  # pip-audit turns up several vulnerabilities for cryptography, but
+  # we cannot pull in a newer version of that library because we
+  # can't currently support any version of Python later than 3.10.
+  # - repo: https://github.com/pypa/pip-audit
+  #   rev: v2.7.3
+  #   hooks:
+  #     - id: pip-audit
+  #       args:
+  #         # Add any pip requirements files to scan
+  #         - --requirement
+  #         - requirements-dev.txt
+  #         - --requirement
+  #         - requirements-test.txt
+  #         - --requirement
+  #         - requirements.txt
   - repo: https://github.com/asottile/pyupgrade
     # pyupgrade no longer supports Python 3.7 as of version 3.4.0, so
     # we cannot upgrade past the 3.3.2 release:
@@ -232,7 +252,7 @@ repos:
 
   # Terraform hooks
   - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.90.0
+    rev: v1.96.1
     hooks:
       - id: terraform_fmt
       - id: terraform_validate
@@ -245,7 +265,7 @@ repos:
 
   # Packer hooks
   - repo: https://github.com/cisagov/pre-commit-packer
-    rev: v0.0.2
+    rev: v0.3.0
     hooks:
-      - id: packer_validate
       - id: packer_fmt
+      - id: packer_validate

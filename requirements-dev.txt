@@ -1,3 +1,4 @@
+--editable .[dev]
 --requirement requirements-test.txt
 build
 ipython

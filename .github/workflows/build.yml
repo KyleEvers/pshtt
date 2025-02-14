@@ -20,7 +20,6 @@ defaults:
     shell: bash -Eueo pipefail -x {0}
 
 env:
-  CURL_CACHE_DIR: ~/.cache/curl
   PIP_CACHE_DIR: ~/.cache/pip
   PRE_COMMIT_CACHE_DIR: ~/.cache/pre-commit
   RUN_TMATE: ${{ secrets.RUN_TMATE }}
@@ -31,8 +30,16 @@ env:
 jobs:
   diagnostics:
     name: Run diagnostics
+    # This job does not need any permissions
+    permissions: {}
     runs-on: ubuntu-latest
     steps:
+      # Note that a duplicate of this step must be added at the top of
+      # each job.
+      - uses: GitHubSecurityLab/actions-permissions/monitor@v1
+        with:
+          # Uses the organization variable unless overridden
+          config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       # Note that a duplicate of this step must be added at the top of
       # each job.
       - id: harden-runner
@@ -49,8 +56,15 @@ jobs:
   lint:
     needs:
       - diagnostics
+    permissions:
+      # actions/checkout needs this to fetch code
+      contents: read
     runs-on: ubuntu-latest
     steps:
+      - uses: GitHubSecurityLab/actions-permissions/monitor@v1
+        with:
+          # Uses the organization variable unless overridden
+          config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       - id: harden-runner
         name: Harden the runner
         uses: step-security/harden-runner@v2
@@ -78,7 +92,7 @@ jobs:
         name: Lookup Go cache directory
         run: |
           echo "dir=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         env:
           BASE_CACHE_KEY: "${{ github.job }}-${{ runner.os }}-\
             py${{ steps.setup-python.outputs.python-version }}-\
@@ -103,25 +117,12 @@ jobs:
           path: |
             ${{ env.PIP_CACHE_DIR }}
             ${{ env.PRE_COMMIT_CACHE_DIR }}
-            ${{ env.CURL_CACHE_DIR }}
             ${{ steps.go-cache.outputs.dir }}
           restore-keys: |
             ${{ env.BASE_CACHE_KEY }}
-      - name: Setup curl cache
-        run: mkdir -p ${{ env.CURL_CACHE_DIR }}
-      - name: Install Packer
-        env:
-          PACKER_VERSION: ${{ steps.setup-env.outputs.packer-version }}
-        run: |
-          PACKER_ZIP="packer_${PACKER_VERSION}_linux_amd64.zip"
-          curl --output ${{ env.CURL_CACHE_DIR }}/"${PACKER_ZIP}" \
-            --time-cond ${{ env.CURL_CACHE_DIR }}/"${PACKER_ZIP}" \
-            --location \
-            "https://releases.hashicorp.com/packer/${PACKER_VERSION}/${PACKER_ZIP}"
-          sudo unzip -d /opt/packer \
-            ${{ env.CURL_CACHE_DIR }}/"${PACKER_ZIP}"
-          sudo mv /usr/local/bin/packer /usr/local/bin/packer-default
-          sudo ln -s /opt/packer/packer /usr/local/bin/packer
+      - uses: hashicorp/setup-packer@v3
+        with:
+          version: ${{ steps.setup-env.outputs.packer-version }}
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ steps.setup-env.outputs.terraform-version }}
@@ -177,18 +178,30 @@ jobs:
     name: test source - py${{ matrix.python-version }}
     needs:
       - diagnostics
-    runs-on: ubuntu-latest
+    permissions:
+      # actions/checkout needs this to fetch code
+      contents: read
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        include:
+          - os: ubuntu-22.04
+            python-version: "3.7"
+        os:
+          - ubuntu-latest
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           - "3.10"
           # - "3.11"
           # - "3.12"
+          # - "3.13"
     steps:
+      - uses: GitHubSecurityLab/actions-permissions/monitor@v1
+        with:
+          # Uses the organization variable unless overridden
+          config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       - id: harden-runner
         name: Harden the runner
         uses: step-security/harden-runner@v2
@@ -199,7 +212,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         env:
           BASE_CACHE_KEY: "${{ github.job }}-${{ runner.os }}-\
             py${{ steps.setup-python.outputs.python-version }}-"
@@ -234,11 +247,18 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: env.RUN_TMATE
   coveralls-finish:
+    permissions:
+      # actions/checkout needs this to fetch code
+      contents: read
     runs-on: ubuntu-latest
     needs:
       - diagnostics
       - test
     steps:
+      - uses: GitHubSecurityLab/actions-permissions/monitor@v1
+        with:
+          # Uses the organization variable unless overridden
+          config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       - id: harden-runner
         name: Harden the runner
         uses: step-security/harden-runner@v2
@@ -251,9 +271,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           # python-version: ${{ steps.setup-env.outputs.python-version }}
-          # This project cannot currently support Python 3.11 or 3.12.
+          # This project cannot currently support Python 3.11 or later.
           python-version: "3.10"
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         env:
           BASE_CACHE_KEY: "${{ github.job }}-${{ runner.os }}-\
             py${{ steps.setup-python.outputs.python-version }}-"
@@ -285,18 +305,30 @@ jobs:
       - diagnostics
       - lint
       - test
-    runs-on: ubuntu-latest
+    permissions:
+      # actions/checkout needs this to fetch code
+      contents: read
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        include:
+          - os: ubuntu-22.04
+            python-version: "3.7"
+        os:
+          - ubuntu-latest
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           - "3.10"
           # - "3.11"
           # - "3.12"
+          # - "3.13"
     steps:
+      - uses: GitHubSecurityLab/actions-permissions/monitor@v1
+        with:
+          # Uses the organization variable unless overridden
+          config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       - id: harden-runner
         name: Harden the runner
         uses: step-security/harden-runner@v2
@@ -307,7 +339,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         env:
           BASE_CACHE_KEY: "${{ github.job }}-${{ runner.os }}-\
             py${{ steps.setup-python.outputs.python-version }}-"
@@ -340,18 +372,30 @@ jobs:
     needs:
       - diagnostics
       - build
-    runs-on: ubuntu-latest
+    permissions:
+      # actions/checkout needs this to fetch code
+      contents: read
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        include:
+          - os: ubuntu-22.04
+            python-version: "3.7"
+        os:
+          - ubuntu-latest
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           - "3.10"
           # - "3.11"
           # - "3.12"
+          # - "3.13"
     steps:
+      - uses: GitHubSecurityLab/actions-permissions/monitor@v1
+        with:
+          # Uses the organization variable unless overridden
+          config: ${{ vars.ACTIONS_PERMISSIONS_CONFIG }}
       - id: harden-runner
         name: Harden the runner
         uses: step-security/harden-runner@v2
@@ -362,7 +406,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         env:
           BASE_CACHE_KEY: "${{ github.job }}-${{ runner.os }}-\
             py${{ steps.setup-python.outputs.python-version }}-"

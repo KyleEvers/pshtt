@@ -39,6 +39,52 @@ python_versions() {
   pyenv versions --bare --skip-aliases --skip-envs
 }
 
+check_python_version() {
+  local version=$1
+
+  # This is a valid regex for semantically correct Python version strings.
+  # For more information see here:
+  # https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+  # Break down the regex into readable parts major.minor.patch
+  local major="0|[1-9]\d*"
+  local minor="0|[1-9]\d*"
+  local patch="0|[1-9]\d*"
+
+  # Splitting the prerelease part for readability
+  # Start of the prerelease
+  local prerelease="(?:-"
+  # Numeric or alphanumeric identifiers
+  local prerelease+="(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+  # Additional dot-separated identifiers
+  local prerelease+="(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*"
+  # End of the prerelease, making it optional
+  local prerelease+=")?"
+  # Optional build metadata
+  local build="(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?"
+
+  # Final regex composed of parts
+  local regex="^($major)\.($minor)\.($patch)$prerelease$build$"
+
+  # This checks if the Python version does not match the regex pattern specified in $regex,
+  # using Perl for regex matching. If the pattern is not found, then prompt the user with
+  # the invalid version message.
+  if ! echo "$version" | perl -ne "exit(!/$regex/)"; then
+    echo "Invalid version of Python: Python follows semantic versioning," \
+      "so any version string that is not a valid semantic version is an" \
+      "invalid version of Python."
+    exit 1
+  # Else if the Python version isn't installed then notify the user.
+  # grep -E is used for searching through text lines that match the specific verison.
+  elif ! python_versions | grep -E "^${version}$" > /dev/null; then
+    echo "Error: Python version $version is not installed."
+    echo "Installed Python versions are:"
+    python_versions
+    exit 1
+  else
+    echo "Using Python version $version"
+  fi
+}
+
 # Flag to force deletion and creation of virtual environment
 FORCE=0
 
@@ -144,17 +190,8 @@ while true; do
     -p | --python-version)
       PYTHON_VERSION="$2"
       shift 2
-      # Check the Python versions being passed in.
-      if [ -n "${PYTHON_VERSION+x}" ]; then
-        if python_versions | grep -E "^${PYTHON_VERSION}$" > /dev/null; then
-          echo Using Python version "$PYTHON_VERSION"
-        else
-          echo Error: Python version "$PYTHON_VERSION" is not installed.
-          echo Installed Python versions are:
-          python_versions
-          exit 1
-        fi
-      fi
+      # Check the Python version being passed in.
+      check_python_version "$PYTHON_VERSION"
       ;;
     -v | --venv-name)
       VENV_NAME="$2"
@@ -188,15 +225,8 @@ if [ $LIST_VERSIONS -ne 0 ]; then
   # Read the user's desired Python version.
   # -r: treat backslashes as literal, -p: display prompt before input.
   read -r -p "Enter the desired Python version: " PYTHON_VERSION
-  # Check the Python versions being passed in.
-  if [ -n "${PYTHON_VERSION+x}" ]; then
-    if python_versions | grep -E "^${PYTHON_VERSION}$" > /dev/null; then
-      echo Using Python version "$PYTHON_VERSION"
-    else
-      echo Error: Python version "$PYTHON_VERSION" is not installed.
-      exit 1
-    fi
-  fi
+  # Check the Python version being passed in.
+  check_python_version "$PYTHON_VERSION"
 fi
 
 # Remove any lingering local configuration.
@@ -250,9 +280,6 @@ for req_file in "requirements-dev.txt" "requirements-test.txt" "requirements.txt
   fi
 done
 
-# Install all necessary mypy type stubs
-mypy --install-types src/
-
 # Install git pre-commit hooks now or later.
 pre-commit install ${INSTALL_HOOKS:+"--install-hooks"}
 
@@ -284,6 +311,9 @@ else:
     print(f'Unsupported lineage version: {lineage["version"]}', file=sys.stderr)
 END_OF_LINE
 )"
+
+# Install all necessary mypy type stubs
+mypy --install-types --non-interactive src/
 
 # Qapla'
 echo "Success!"

@@ -81,6 +81,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         # "Programming Language :: Python :: 3.11",
         # "Programming Language :: Python :: 3.12",
+        # "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     python_requires=">=3.7",
@@ -89,6 +90,7 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
+    include_package_data=True,
     install_requires=[
         "docopt>=0.6.2",
         "publicsuffixlist[update]>=0.9.2 ",
@@ -99,29 +101,31 @@ setup(
         "pytz>=2018.5",
         "requests>=2.18.4",
         # This is necessary to support the python_requires kwarg
-        "setuptools >= 24.2.0",
+        "setuptools",
         "sslyze>=3.0.0,<5.0.0",
         "wget>=3.2",
     ],
     extras_require={
-        "test": [
-            "coverage",
-            # coveralls 1.11.0 added a service number for calls from
-            # GitHub Actions. This caused a regression which resulted in a 422
-            # response from the coveralls API with the message:
-            # Unprocessable Entity for url: https://coveralls.io/api/v1/jobs
-            # 1.11.1 fixed this issue, but to ensure expected behavior we'll pin
-            # to never grab the regression version.
-            "coveralls != 1.11.0",
-            "pre-commit",
-            "pytest-cov",
-            "pytest",
+        # IMPORTANT: Keep type hinting-related dependencies of the dev section
+        # in sync with the mypy pre-commit hook configuration (see
+        # .pre-commit-config.yaml). Any changes to type hinting-related
+        # dependencies here should be reflected in the additional_dependencies
+        # field of the mypy pre-commit hook to avoid discrepancies in type
+        # checking between environments.
+        "dev": [
             "types-docopt",
             "types-pyOpenSSL",
             "types-requests",
             "types-setuptools",
             "types-urllib3",
-        ]
+        ],
+        "test": [
+            "coverage",
+            "coveralls",
+            "pre-commit",
+            "pytest-cov",
+            "pytest",
+        ],
     },
     # Conveniently allows one to run the CLI tool as `pshtt`
     entry_points={"console_scripts": ["pshtt = pshtt.cli:main"]},
